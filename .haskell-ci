@@ -1,0 +1,23 @@
+# compiler supported and their equivalent LTS
+compiler: ghc-8.0 lts-9.21
+compiler: ghc-8.2 lts-11.22
+compiler: ghc-8.4 lts-12.26
+compiler: ghc-8.6 lts-14.1
+
+# options
+option: memorymin extradep=basement-0.0.7 extradep=memory-0.14.18 extradep=cryptonite-0.26
+
+# builds
+build: ghc-8.0 memorymin
+build: ghc-8.2
+build: ghc-8.2
+build: ghc-8.4
+build: ghc-8.6 os=osx
+
+# packages
+package: '.'
+
+# extra builds
+hlint: allowed-failure
+weeder: allowed-failure
+coverall: false

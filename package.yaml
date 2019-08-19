@@ -1,0 +1,48 @@
+name:                p384
+version:             0.1.0.0
+github:              "ocheron/p384"
+license:             BSD3
+author:              "Olivier Chéron"
+maintainer:          "olivier.cheron@gmail.com"
+copyright:           "2019 Olivier Chéron"
+
+extra-source-files:
+- README.md
+- cbits/p384/*.h
+
+synopsis:            Elliptic curve P-384
+category:            Crypto
+
+description:         Arithmetic primitives over curve P-384
+
+dependencies:
+- base >= 4.7 && < 5
+- memory
+- cryptonite >= 0.25
+
+library:
+  source-dirs:           src
+  exposed-modules:
+  - Crypto.PubKey.ECC.P384
+  c-sources:             cbits/p384/*.c
+  cc-options:            -Wall
+  ghc-options:
+  - -Wall
+  include-dirs:          cbits
+
+tests:
+  p384-test:
+    main:                Tests.hs
+    source-dirs:         tests
+    ghc-options:
+    - -Wall
+    - -fno-warn-missing-signatures
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - p384
+    - bytestring
+    - tasty
+    - tasty-hunit
+    - tasty-quickcheck
