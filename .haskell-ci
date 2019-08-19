@@ -10,8 +10,8 @@ option: memorymin extradep=basement-0.0.7 extradep=memory-0.14.18 extradep=crypt
 # builds
 build: ghc-8.0 memorymin
 build: ghc-8.2
-build: ghc-8.2
 build: ghc-8.4
+build: ghc-8.6
 build: ghc-8.6 os=osx
 
 # packages
