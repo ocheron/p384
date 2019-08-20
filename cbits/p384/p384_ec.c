@@ -404,7 +404,45 @@ static void felem_reduce_degree(felem out, u64 tmp[27]) {
     xMask = NON_ZERO_TO_ALL_ONES(x);
     tmp2[i] = 0;
 
-    /* FIXME verify bounds calculations for this loop */
+    /* The bounds calculations for this loop are tricky. Each iteration of
+     * the loop eliminates two words by adding values to words to their
+     * right.
+     *
+     * The following table contains the amounts added to each word (as an
+     * offset from the value of i at the top of the loop). The amounts are
+     * accounted for from the first and second half of the loop separately
+     * and are written as, for example, 28 to mean a value <2**28.
+     *
+     * Word:                  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+     * Added in top half:    27  5 27 28 27 28 27 28 27 28 27 28 28 27
+     * Added in bottom half:    28  4 28 27 28 27 28 27 28 27 28 27 28 26
+     *
+     * The value that is currently offset 7 will be offset 5 for the next
+     * iteration and then offset 3 for the iteration after that. Therefore
+     * the total value added will be the values added at 7, 5 and 3.
+     *
+     * The following table accumulates these values. The sums at the bottom
+     * are written as, for example, 29+28, to mean a value < 2**29+2**28.
+     *
+     * Word:  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 ..
+     *       27  5 27 28 27 28 27 28 27 28 27 28 28 27 26 27 26 27 26 27 26 ..
+     *          28  4 28 27 28 27 28 27 28 27 28 27 28 28 28 28 28 28 28 28 ..
+     *             27  5 27 28 27 28 27 28 27 28 27 28 27 28 27 28 27 28 27 ..
+     *                28  4 28 27 28 27 28 27 28 27 28 27 28 27 28 27 28 27 ..
+     *                   27  5 27 28 27 28 27 28 27 28 27 28 27 28 27 28 27 ..
+     *                      28  4 28 27 28 27 28 27 28 27 28 27 28 27 28 27 ..
+     *                         27  5 27 28 27 28 27 28 27 28 27 28 27 28 27 ..
+     *                            28  4 28 27 28 27 28 27 28 27 28 27 28 27 ..
+     *                               27  5 27 28 27 28 27 28 27 28 27 28 27 ..
+     *                                  28  4 28 27 28 27 28 27 28 27 28 27 ..
+     *                                     27  5 27 28 27 28 27 28 27 28 27 ..
+     *                                        28  4 28 27 28 27 28 27 28 27 ..
+     *                                           27  5  4  5  4  5  4  5  4 ..
+     *                                              28 27 28 27 28 27 28 27 ..
+     *
+     * So the greatest amount is added to tmp2[14], tmp2[16], tmp2[18], etc. If
+     * tmp2[14/16/18/..] has an initial value of <2**28, then the maximum value
+     * will be < 2**27 + 13 * 2**28 + 5**5, which is < 2**32 as required. */
     tmp2[i +  1] += (x << 4) & kBottom27Bits;
     tmp2[i +  2] += x >> 23;
     tmp2[i +  3] += (1 << 27) & xMask;
