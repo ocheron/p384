@@ -851,6 +851,15 @@ static void felem_assign(felem out, const felem in) {
   memcpy(out, in, sizeof(felem));
 }
 
+#define NTH_DOUBLE(out, n, in) \
+  felem_square(out, in); \
+  for (i = 0; i < n - 1; i++) \
+    felem_square(out, out);
+
+#define NTH_DOUBLE_ADD(out, n, a, in) \
+  NTH_DOUBLE(out, n, in); \
+  felem_mul(out, out, a);
+
 /* felem_inv calculates |out| = |in|^{-1}
  *
  * Based on Fermat's Little Theorem:
@@ -859,62 +868,27 @@ static void felem_assign(felem out, const felem in) {
  *   a^{p-2} = a^{-1} (mod p)
  */
 static void felem_inv(felem out, const felem in) {
-  felem i6, i7, i8;
-  int i, j;
+  felem x2, x3, x6, x12, x15, x30, x60, x120;
+  int i;
 
-  // 0b11111111
-  felem_assign(out, in);
-  for (j = 0; j < 5; j++)
-  {
-    felem_square(out, out); felem_mul(out, out, in);
-  }
-  felem_assign(i6, out);
-  felem_square(out, out); felem_mul(out, out, in);
-  felem_assign(i7, out);
-  felem_square(out, out); felem_mul(out, out, in);
-  felem_assign(i8, out);
+  // https://briansmith.org/ecc-inversion-addition-chains-01#p384_field_inversion
+  NTH_DOUBLE_ADD(x2,        1, in,   in);
+  NTH_DOUBLE_ADD(x3,        1, in,   x2);
+  NTH_DOUBLE_ADD(x6,        3, x3,   x3);
+  NTH_DOUBLE_ADD(x12,       6, x6,   x6);
+  NTH_DOUBLE_ADD(x15,       3, x3,   x12);
+  NTH_DOUBLE_ADD(x30,      15, x15,  x15);
+  NTH_DOUBLE_ADD(x60,      30, x30,  x30);
+  NTH_DOUBLE_ADD(x120,     60, x60,  x60);
+  NTH_DOUBLE_ADD(out,     120, x120, x120);
+  NTH_DOUBLE_ADD(out,      15, x15,  out);
+  NTH_DOUBLE_ADD(out,  1 + 30, x30,  out);
+  NTH_DOUBLE_ADD(out,       2, x2,   out);
+  NTH_DOUBLE_ADD(out, 64 + 30, x30,  out);
+  NTH_DOUBLE    (out,       2,       out);
 
-  // 0b11111111 (x30)
-  for (i = 0; i < 30; i++)
-  {
-    for (j = 0; j < 8; j++)
-      felem_square(out, out);
-    felem_mul(out, out, i8);
-  }
-
-  // 0b11111110
-  for (j = 0; j < 7; j++)
-    felem_square(out, out);
-  felem_mul(out, out, i7);
-  felem_square(out, out);
-
-  // 0b11111111 (x4)
-  for (i = 0; i < 4; i++)
-  {
-    for (j = 0; j < 8; j++)
-      felem_square(out, out);
-    felem_mul(out, out, i8);
-  }
-
-  // 0b00000000 (x8)
-  for (j = 0; j < 64; j++)
-    felem_square(out, out);
-
-  // 0b11111111 (x3)
-  for (i = 0; i < 3; i++)
-  {
-    for (j = 0; j < 8; j++)
-      felem_square(out, out);
-    felem_mul(out, out, i8);
-  }
-
-  // 0b11111101
-  for (j = 0; j < 6; j++)
-    felem_square(out, out);
-  felem_mul(out, out, i6);
-  felem_square(out, out);
-  felem_square(out, out); felem_mul(out, out, in);
   //2^384 - 2^128 - 2^96 + 2^32 - 3
+  felem_mul(out, out, in);
 }
 
 /* felem_scalar_3 sets out=3*out.
