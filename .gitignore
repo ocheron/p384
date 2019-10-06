@@ -1,3 +1,4 @@
 .stack-work/
+.travis.yml.sav
 p384.cabal
 *~
