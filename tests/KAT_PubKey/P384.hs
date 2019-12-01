@@ -54,6 +54,9 @@ unP384Scalar (P384Scalar r) =
 unP384 :: P384Scalar -> Integer
 unP384 (P384Scalar r) = r
 
+modP384Scalar :: P384Scalar -> P384Scalar
+modP384Scalar (P384Scalar r) = P384Scalar (r `mod` curveN)
+
 p384ScalarToInteger :: P384.Scalar -> Integer
 p384ScalarToInteger s = os2ip (P384.scalarToBinary s :: Bytes)
 
@@ -119,9 +122,10 @@ tests = testGroup "P384"
                 t = P384.pointFromIntegers (xT, yT)
                 r = P384.pointFromIntegers (xR, yR)
              in r @=? P384.pointAdd s t
-        , testProperty "lift-to-curve" $ propertyLiftToCurve
-        , testProperty "point-add" $ propertyPointAdd
-        , testProperty "point-negate" $ propertyPointNegate
+        , testProperty "lift-to-curve" propertyLiftToCurve
+        , testProperty "point-add" propertyPointAdd
+        , testProperty "point-negate" propertyPointNegate
+        , testProperty "point-mul" propertyPointMul
         ]
     ]
   where
@@ -150,4 +154,15 @@ tests = testGroup "P384"
         let p  = P384.toPoint (unP384Scalar r)
             pe = ECC.pointMul curve (unP384 r) curveGen
             pR = P384.pointNegate p
-         in ECC.pointNegate curve pe `propertyEq` (pointP384ToECC pR)
+         in ECC.pointNegate curve pe `propertyEq` pointP384ToECC pR
+
+    propertyPointMul s' r' =
+        let s     = modP384Scalar s'
+            r     = modP384Scalar r'
+            p     = P384.toPoint (unP384Scalar r)
+            pe    = ECC.pointMul curve (unP384 r) curveGen
+            pR    = P384.toPoint (P384.scalarMul (unP384Scalar s) (unP384Scalar r))
+            peR   = ECC.pointMul curve (unP384 s) pe
+         in propertyHold [ eqTest "p384" pR (P384.pointMul (unP384Scalar s) p)
+                         , eqTest "ecc" peR (pointP384ToECC pR)
+                         ]
