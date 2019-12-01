@@ -37,6 +37,7 @@ module Crypto.PubKey.ECC.P384
     , scalarSub
     , scalarMul
     , scalarInv
+    , scalarInvSafe
     , scalarCmp
     , scalarFromBinary
     , scalarToBinary
@@ -205,12 +206,12 @@ pointFromBinary ba = unsafePointFromBinary ba >>= validatePoint
     validatePoint :: Point -> CryptoFailable Point
     validatePoint p
         | pointIsValid p = CryptoPassed p
-        | otherwise      = CryptoFailed $ CryptoError_PointCoordinatesInvalid
+        | otherwise      = CryptoFailed CryptoError_PointCoordinatesInvalid
 
 -- | Convert from binary to a point, possibly invalid
 unsafePointFromBinary :: ByteArrayAccess ba => ba -> CryptoFailable Point
 unsafePointFromBinary ba
-    | B.length ba /= pointSize = CryptoFailed $ CryptoError_PublicKeySizeInvalid
+    | B.length ba /= pointSize = CryptoFailed CryptoError_PublicKeySizeInvalid
     | otherwise                =
         CryptoPassed $ withNewPoint $ \px py -> B.withByteArray ba $ \src -> do
             ccryptonite_p384_from_bin src                        (castPtr px)
@@ -277,6 +278,14 @@ scalarInv a =
     withNewScalarFreeze $ \b -> withScalar a $ \pa ->
         ccryptonite_p384_modinv_vartime ccryptonite_SECP384r1_n pa b
 
+-- | Give the inverse of the scalar using safe exponentiation
+--
+-- > 1 / a
+scalarInvSafe :: Scalar -> Scalar
+scalarInvSafe a =
+    withNewScalarFreeze $ \b -> withScalar a $ \pa ->
+        ccryptonite_p384e_scalar_invert pa b
+
 -- | Compare 2 Scalar
 scalarCmp :: Scalar -> Scalar -> Ordering
 scalarCmp a b = unsafeDoIO $
@@ -287,7 +296,7 @@ scalarCmp a b = unsafeDoIO $
 -- | convert a scalar from binary
 scalarFromBinary :: ByteArrayAccess ba => ba -> CryptoFailable Scalar
 scalarFromBinary ba
-    | B.length ba /= scalarSize = CryptoFailed $ CryptoError_SecretKeySizeInvalid
+    | B.length ba /= scalarSize = CryptoFailed CryptoError_SecretKeySizeInvalid
     | otherwise                 =
         CryptoPassed $ withNewScalarFreeze $ \p -> B.withByteArray ba $ \b ->
             ccryptonite_p384_from_bin b p
@@ -372,6 +381,8 @@ foreign import ccall "cryptonite_p384_mod"
     ccryptonite_p384_mod :: Ptr P384Scalar -> Ptr P384Scalar -> Ptr P384Scalar -> IO ()
 foreign import ccall "cryptonite_p384_modmul"
     ccryptonite_p384_modmul :: Ptr P384Scalar -> Ptr P384Scalar -> P384Digit -> Ptr P384Scalar -> Ptr P384Scalar -> IO ()
+foreign import ccall "cryptonite_p384e_scalar_invert"
+    ccryptonite_p384e_scalar_invert :: Ptr P384Scalar -> Ptr P384Scalar -> IO ()
 --foreign import ccall "cryptonite_p384_modinv"
 --    ccryptonite_p384_modinv :: Ptr P384Scalar -> Ptr P384Scalar -> Ptr P384Scalar -> IO ()
 foreign import ccall "cryptonite_p384_modinv_vartime"

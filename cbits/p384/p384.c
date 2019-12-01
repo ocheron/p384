@@ -415,3 +415,127 @@ void cryptonite_p384e_modsub(const cryptonite_p384_int* MOD, const cryptonite_p3
   top = subM(MOD, top, P384_DIGITS(c), MSB_COMPLEMENT(top));
   addM(MOD, 0, P384_DIGITS(c), top);
 }
+
+// n' such as n * n' = -1 mod (2^32)
+#define MONTGOMERY_FACTOR 0xE88FDC45
+
+#define NTH_DOUBLE_THEN_ADD(i, a, nth, b, out)   \
+    cryptonite_p384e_montmul(a, a, out);         \
+    for (i = 1; i < nth; i++)                    \
+        cryptonite_p384e_montmul(out, out, out); \
+    cryptonite_p384e_montmul(out, b, out);
+
+const cryptonite_p384_int cryptonite_SECP384r1_r2 = // r^2 mod n
+  {{0x19B409A9, 0x2D319B24, 0xDF1AA419, 0xFF3D81E5,
+    0xFCB82947, 0xBC3E483A, 0x4AAB1CC5, 0xD40D4917,
+    0x28266895, 0x3FB05B7A, 0x2B39BF21, 0x0C84EE01}};
+
+const cryptonite_p384_int cryptonite_SECP384r1_one = {{1}};
+
+// Montgomery multiplication, i.e. c = ab/r mod n with r = 2^384.
+// Implementation is adapted from 'sc_montmul' in libdecaf.
+static void cryptonite_p384e_montmul(const cryptonite_p384_int* a, const cryptonite_p384_int* b, cryptonite_p384_int* c) {
+  int i, j, borrow;
+  cryptonite_p384_digit accum[P384_NDIGITS+1] = {0};
+  cryptonite_p384_digit hi_carry = 0;
+
+  for (i=0; i<P384_NDIGITS; i++) {
+    cryptonite_p384_digit mand = P384_DIGIT(a, i);
+    const cryptonite_p384_digit *mier = P384_DIGITS(b);
+
+    cryptonite_p384_ddigit chain = 0;
+    for (j=0; j<P384_NDIGITS; j++) {
+      chain += ((cryptonite_p384_ddigit)mand)*mier[j] + accum[j];
+      accum[j] = chain;
+      chain >>= P384_BITSPERDIGIT;
+    }
+    accum[j] = chain;
+
+    mand = accum[0] * MONTGOMERY_FACTOR;
+    chain = 0;
+    mier = P384_DIGITS(&cryptonite_SECP384r1_n);
+    for (j=0; j<P384_NDIGITS; j++) {
+      chain += (cryptonite_p384_ddigit)mand*mier[j] + accum[j];
+      if (j) accum[j-1] = chain;
+      chain >>= P384_BITSPERDIGIT;
+    }
+    chain += accum[j];
+    chain += hi_carry;
+    accum[j-1] = chain;
+    hi_carry = chain >> P384_BITSPERDIGIT;
+  }
+
+  memcpy(P384_DIGITS(c), accum, sizeof(*c));
+  borrow = cryptonite_p384_sub(c, &cryptonite_SECP384r1_n, c);
+  addM(&cryptonite_SECP384r1_n, 0, P384_DIGITS(c), borrow + hi_carry);
+}
+
+// b = 1/a mod n, using Fermat's little theorem.
+void cryptonite_p384e_scalar_invert(const cryptonite_p384_int* a, cryptonite_p384_int* b) {
+  cryptonite_p384_int _1, _10, _11, _101, _111, _1001, _1011;
+  cryptonite_p384_int _1101, _1111, x8, x16, x32, x96;
+  int i;
+
+  // Montgomerize
+  cryptonite_p384e_montmul(a, &cryptonite_SECP384r1_r2, &_1);
+
+  // P-384 (secp384r1) Scalar Inversion
+  // <https://briansmith.org/ecc-inversion-addition-chains-01>
+  cryptonite_p384e_montmul(&_1     , &_1     , &_10);
+  cryptonite_p384e_montmul(&_10    , &_1     , &_11);
+  cryptonite_p384e_montmul(&_10    , &_11    , &_101);
+  cryptonite_p384e_montmul(&_10    , &_101   , &_111);
+  cryptonite_p384e_montmul(&_10    , &_111   , &_1001);
+  cryptonite_p384e_montmul(&_10    , &_1001  , &_1011);
+  cryptonite_p384e_montmul(&_10    , &_1011  , &_1101);
+  cryptonite_p384e_montmul(&_10    , &_1101  , &_1111);
+  NTH_DOUBLE_THEN_ADD(i, &_1111,  4   , &_1111  , &x8);
+  NTH_DOUBLE_THEN_ADD(i, &x8   ,  8   , &x8     , &x16);
+  NTH_DOUBLE_THEN_ADD(i, &x16  , 16   , &x16    , &x32);
+  NTH_DOUBLE_THEN_ADD(i, &x32  , 32   , &x32    , &x96);
+  NTH_DOUBLE_THEN_ADD(i, &x96  , 32   , &x32    , &x96);
+
+  NTH_DOUBLE_THEN_ADD(i, &x96  ,    96, &x96    , b);
+  NTH_DOUBLE_THEN_ADD(i, b     ,     2, &_11    , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 3 + 3, &_111   , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 1 + 2, &_11    , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 3 + 2, &_11    , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 1 + 4, &_1001  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     ,     4, &_1011  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 6 + 4, &_1111  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     ,     3, &_101   , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 4 + 1, &_1     , b);
+  NTH_DOUBLE_THEN_ADD(i, b     ,     4, &_1011  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     ,     4, &_1001  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 1 + 4, &_1101  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     ,     4, &_1101  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     ,     4, &_1111  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 1 + 4, &_1011  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 6 + 4, &_1101  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 5 + 4, &_1101  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     ,     4, &_1011  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 2 + 4, &_1001  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 2 + 1, &_1     , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 3 + 4, &_1011  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 4 + 3, &_101   , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 2 + 3, &_111   , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 1 + 4, &_1111  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 1 + 4, &_1011  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     ,     4, &_1011  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 2 + 3, &_111   , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 1 + 2, &_11    , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 5 + 2, &_11    , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 2 + 4, &_1011  , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 1 + 3, &_101   , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 1 + 2, &_11    , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 2 + 2, &_11    , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 2 + 2, &_11    , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 3 + 3, &_101   , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 2 + 3, &_101   , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 2 + 3, &_101   , b);
+  NTH_DOUBLE_THEN_ADD(i, b     ,     2, &_11    , b);
+  NTH_DOUBLE_THEN_ADD(i, b     , 3 + 1, &_1     , b);
+
+  // Demontgomerize
+  cryptonite_p384e_montmul(b, &cryptonite_SECP384r1_one, b);
+}

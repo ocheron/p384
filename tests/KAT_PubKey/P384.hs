@@ -102,7 +102,21 @@ tests = testGroup "P384"
         , testProperty "inv" $ \r' ->
             let inv  = inverseCoprimes (unP384 r') curveN
                 inv' = P384.scalarInv (unP384Scalar r')
-             in if unP384 r' == 0 then True else inv `propertyEq` p384ScalarToInteger inv'
+             in unP384 r' /= 0 ==> inv `propertyEq` p384ScalarToInteger inv'
+        , testProperty "inv-safe" $ \r' ->
+            let inv  = P384.scalarInv (unP384Scalar r')
+                inv' = P384.scalarInvSafe (unP384Scalar r')
+             in unP384 r' /= 0 ==> inv `propertyEq` inv'
+        , testProperty "inv-safe-mul" $ \r' ->
+            let inv = P384.scalarInvSafe (unP384Scalar r')
+                res = P384.scalarMul (unP384Scalar r') inv
+             in unP384 r' /= 0 ==> 1 `propertyEq` p384ScalarToInteger res
+        , testProperty "inv-safe-zero" $
+            let inv0 = P384.scalarInvSafe P384.scalarZero
+                invN = P384.scalarInvSafe P384.scalarN
+             in propertyHold [ eqTest "scalarZero" P384.scalarZero inv0
+                             , eqTest "scalarN"    P384.scalarZero invN
+                             ]
         ]
     , testGroup "point"
         [ testProperty "marshalling" $ \rx ry ->
