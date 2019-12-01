@@ -20,7 +20,9 @@ module Crypto.PubKey.ECC.P384
     , pointDh
     , pointsMulVarTime
     , pointIsValid
+    , pointIsAtInfinity
     , toPoint
+    , pointX
     , pointToIntegers
     , pointFromIntegers
     , pointToBinary
@@ -29,6 +31,7 @@ module Crypto.PubKey.ECC.P384
     -- * Scalar arithmetic
     , scalarGenerate
     , scalarZero
+    , scalarN
     , scalarIsZero
     , scalarAdd
     , scalarSub
@@ -75,6 +78,9 @@ data P384Scalar
 data P384Y
 data P384X
 
+order :: Integer
+order = 0xffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf581a0db248b0a77aecec196accc52973
+
 ------------------------------------------------------------------------
 -- Point methods
 ------------------------------------------------------------------------
@@ -108,7 +114,7 @@ pointAdd a b = withNewPoint $ \dx dy ->
 -- | Negate a point
 pointNegate :: Point -> Point
 pointNegate a = withNewPoint $ \dx dy ->
-    withPoint a $ \ax ay -> do
+    withPoint a $ \ax ay ->
         ccryptonite_p384e_point_negate ax ay dx dy
 
 -- | Multiply a point by a scalar
@@ -143,6 +149,19 @@ pointIsValid :: Point -> Bool
 pointIsValid p = unsafeDoIO $ withPoint p $ \px py -> do
     r <- ccryptonite_p384_is_valid_point px py
     return (r /= 0)
+
+-- | Check if a 'Point' is the point at infinity
+pointIsAtInfinity :: Point -> Bool
+pointIsAtInfinity (Point b) = constAllZero b
+
+-- | Return the x coordinate as a 'Scalar' if the point is not at infinity
+pointX :: Point -> Maybe Scalar
+pointX p
+    | pointIsAtInfinity p = Nothing
+    | otherwise           = Just $
+        withNewScalarFreeze $ \d    ->
+        withPoint p         $ \px _ ->
+            ccryptonite_p384_mod ccryptonite_SECP384r1_n (castPtr px) (castPtr d)
 
 -- | Convert a point to (x,y) Integers
 pointToIntegers :: Point -> (Integer, Integer)
@@ -213,6 +232,10 @@ scalarGenerate = unwrap . scalarFromBinary . witness <$> getRandomBytes 48
 -- | The scalar representing 0
 scalarZero :: Scalar
 scalarZero = withNewScalarFreeze $ \d -> ccryptonite_p384_init d
+
+-- | The scalar representing the curve order
+scalarN :: Scalar
+scalarN = throwCryptoError (scalarFromInteger order)
 
 -- | Check if the scalar is 0
 scalarIsZero :: Scalar -> Bool
@@ -345,6 +368,8 @@ foreign import ccall "cryptonite_p384e_modsub"
     ccryptonite_p384e_modsub :: Ptr P384Scalar -> Ptr P384Scalar -> Ptr P384Scalar -> Ptr P384Scalar -> IO ()
 foreign import ccall "cryptonite_p384_cmp"
     ccryptonite_p384_cmp :: Ptr P384Scalar -> Ptr P384Scalar -> IO CInt
+foreign import ccall "cryptonite_p384_mod"
+    ccryptonite_p384_mod :: Ptr P384Scalar -> Ptr P384Scalar -> Ptr P384Scalar -> IO ()
 foreign import ccall "cryptonite_p384_modmul"
     ccryptonite_p384_modmul :: Ptr P384Scalar -> Ptr P384Scalar -> P384Digit -> Ptr P384Scalar -> Ptr P384Scalar -> IO ()
 --foreign import ccall "cryptonite_p384_modinv"
