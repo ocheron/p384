@@ -92,6 +92,10 @@ tests = testGroup "P384"
             let v = unP384 r `mod` curveN
                 v' = P384.scalarSub (unP384Scalar r) P384.scalarZero
              in v `propertyEq` p384ScalarToInteger v'
+        , testProperty "mul" $ \r1 r2 ->
+            let r = (unP384 r1 * unP384 r2) `mod` curveN
+                r' = P384.scalarMul (unP384Scalar r1) (unP384Scalar r2)
+             in r `propertyEq` p384ScalarToInteger r'
         , testProperty "inv" $ \r' ->
             let inv  = inverseCoprimes (unP384 r') curveN
                 inv' = P384.scalarInv (unP384Scalar r')

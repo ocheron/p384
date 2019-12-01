@@ -32,6 +32,7 @@ module Crypto.PubKey.ECC.P384
     , scalarIsZero
     , scalarAdd
     , scalarSub
+    , scalarMul
     , scalarInv
     , scalarCmp
     , scalarFromBinary
@@ -67,6 +68,8 @@ scalarSize = 48
 
 pointSize :: Int
 pointSize = 96
+
+type P384Digit  = Word32
 
 data P384Scalar
 data P384Y
@@ -233,6 +236,14 @@ scalarSub a b =
     withNewScalarFreeze $ \d -> withScalar a $ \pa -> withScalar b $ \pb ->
         ccryptonite_p384e_modsub ccryptonite_SECP384r1_n pa pb d
 
+-- | Perform multiplication between two scalars
+--
+-- > a * b
+scalarMul :: Scalar -> Scalar -> Scalar
+scalarMul a b =
+    withNewScalarFreeze $ \d -> withScalar a $ \pa -> withScalar b $ \pb ->
+         ccryptonite_p384_modmul ccryptonite_SECP384r1_n pa 0 pb d
+
 -- | Give the inverse of the scalar
 --
 -- > 1 / a
@@ -334,6 +345,8 @@ foreign import ccall "cryptonite_p384e_modsub"
     ccryptonite_p384e_modsub :: Ptr P384Scalar -> Ptr P384Scalar -> Ptr P384Scalar -> Ptr P384Scalar -> IO ()
 foreign import ccall "cryptonite_p384_cmp"
     ccryptonite_p384_cmp :: Ptr P384Scalar -> Ptr P384Scalar -> IO CInt
+foreign import ccall "cryptonite_p384_modmul"
+    ccryptonite_p384_modmul :: Ptr P384Scalar -> Ptr P384Scalar -> P384Digit -> Ptr P384Scalar -> Ptr P384Scalar -> IO ()
 --foreign import ccall "cryptonite_p384_modinv"
 --    ccryptonite_p384_modinv :: Ptr P384Scalar -> Ptr P384Scalar -> Ptr P384Scalar -> IO ()
 foreign import ccall "cryptonite_p384_modinv_vartime"
