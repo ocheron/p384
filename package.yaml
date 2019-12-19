@@ -9,11 +9,18 @@ copyright:           "2019 Olivier Chéron"
 extra-source-files:
 - README.md
 - cbits/b32/p384/*.h
+- cbits/b64/p384/*.h
 
 synopsis:            Elliptic curve P-384
 category:            Crypto
 
 description:         Arithmetic primitives over curve P-384
+
+flags:
+  b64:
+    description:     Allow 64-bit architecture
+    manual:          yes
+    default:         yes
 
 dependencies:
 - base >= 4.7 && < 5
@@ -24,11 +31,17 @@ library:
   source-dirs:           src
   exposed-modules:
   - Crypto.PubKey.ECC.P384
-  c-sources:             cbits/b32/p384/*.c
   cc-options:            -Wall
   ghc-options:
   - -Wall
-  include-dirs:          cbits/b32
+  when:
+    - condition: flag(b64) && (arch(x86_64) || arch(aarch64))
+      then:
+        include-dirs:    cbits/b64
+        c-sources:       cbits/b64/p384/*.c
+      else:
+        include-dirs:    cbits/b32
+        c-sources:       cbits/b32/p384/*.c
 
 tests:
   p384-test:
