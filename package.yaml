@@ -8,7 +8,7 @@ copyright:           "2019 Olivier Chéron"
 
 extra-source-files:
 - README.md
-- cbits/p384/*.h
+- cbits/b32/p384/*.h
 
 synopsis:            Elliptic curve P-384
 category:            Crypto
@@ -24,11 +24,11 @@ library:
   source-dirs:           src
   exposed-modules:
   - Crypto.PubKey.ECC.P384
-  c-sources:             cbits/p384/*.c
+  c-sources:             cbits/b32/p384/*.c
   cc-options:            -Wall
   ghc-options:
   - -Wall
-  include-dirs:          cbits
+  include-dirs:          cbits/b32
 
 tests:
   p384-test:
