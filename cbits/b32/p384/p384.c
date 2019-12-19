@@ -68,9 +68,10 @@ int cryptonite_p384_get_bit(const cryptonite_p384_int* scalar, int bit) {
 }
 
 int cryptonite_p384_is_zero(const cryptonite_p384_int* a) {
-  int i, result = 0;
+  cryptonite_p384_digit result = 0;
+  int i = 0;
   for (i = 0; i < P384_NDIGITS; ++i) result |= P384_DIGIT(a, i);
-  return !result;
+  return result == 0;
 }
 
 // top, c[] += a[] * b
@@ -236,7 +237,7 @@ static void cryptonite_p384_shr1(const cryptonite_p384_int* a, int highbit, cryp
     P384_DIGIT(b, i) = accu;
   }
   P384_DIGIT(b, i) = (P384_DIGIT(a, i) >> 1) |
-      (highbit << (P384_BITSPERDIGIT - 1));
+      (((cryptonite_p384_sdigit) highbit) << (P384_BITSPERDIGIT - 1));
 }
 
 // Return -1, 0, 1 for a < b, a == b or a > b respectively.
