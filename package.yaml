@@ -8,8 +8,8 @@ copyright:           "2019 Olivier Chéron"
 
 extra-source-files:
 - README.md
-- cbits/b32/p384/*.h
-- cbits/b64/p384/*.h
+- cbits/include32/p384/*.h
+- cbits/include64/p384/*.h
 
 synopsis:            Elliptic curve P-384
 category:            Crypto
@@ -37,11 +37,11 @@ library:
   when:
     - condition: flag(b64) && (arch(x86_64) || arch(aarch64))
       then:
-        include-dirs:    cbits/b64
-        c-sources:       cbits/b64/p384/*.c
+        include-dirs:    cbits/include64
+        c-sources:       cbits/p384/*.c
       else:
-        include-dirs:    cbits/b32
-        c-sources:       cbits/b32/p384/*.c
+        include-dirs:    cbits/include32
+        c-sources:       cbits/p384/*.c
 
 tests:
   p384-test:

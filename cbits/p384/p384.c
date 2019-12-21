@@ -30,8 +30,8 @@
 // curve which is defined: field prime and element representation, coordinate
 // size, scalar size and curve order.
 
-// This is an implementation of the P384 elliptic curve group with 64-bit
-// words.
+// This is an implementation of the P384 elliptic curve group. It's written to
+// be portable and still constant-time.
 //
 // WARNING: Implementing these functions in a constant-time manner is far from
 //          obvious. Be careful when touching this code.
@@ -46,15 +46,18 @@
 #include "p384/p384.h"
 
 const cryptonite_p384_int cryptonite_SECP384r1_n =  // curve order
-  {{0xecec196accc52973, 0x581a0db248b0a77a, 0xc7634d81f4372ddf, -1, -1, -1}};
+  {{P384_LITERAL(0xccc52973, 0xecec196a), P384_LITERAL(0x48b0a77a, 0x581a0db2),
+    P384_LITERAL(0xf4372ddf, 0xc7634d81), P384_LITERAL(-1, -1),
+    P384_LITERAL(-1, -1), P384_LITERAL(-1, -1)}};
 
 const cryptonite_p384_int cryptonite_SECP384r1_p =  // curve field size
-  {{0xffffffff, 0xffffffff00000000, -2, -1, -1, -1 }};
+  {{P384_LITERAL(-1, 0), P384_LITERAL(0, -1), P384_LITERAL(-2, -1),
+    P384_LITERAL(-1, -1), P384_LITERAL(-1, -1), P384_LITERAL(-1, -1)}};
 
 const cryptonite_p384_int cryptonite_SECP384r1_b =  // curve b
-  {{0x2a85c8edd3ec2aef, 0xc656398d8a2ed19d,
-    0x0314088f5013875a, 0x181d9c6efe814112,
-    0x988e056be3f82d19, 0xb3312fa7e23ee7e4}};
+  {{P384_LITERAL(0xd3ec2aef, 0x2a85c8ed), P384_LITERAL(0x8a2ed19d, 0xc656398d),
+    P384_LITERAL(0x5013875a, 0x0314088f), P384_LITERAL(0xfe814112, 0x181d9c6e),
+    P384_LITERAL(0xe3f82d19, 0x988e056b), P384_LITERAL(0xe23ee7e4, 0xb3312fa7)}};
 
 void cryptonite_p384_init(cryptonite_p384_int* a) {
   memset(a, 0, sizeof(*a));
@@ -367,39 +370,32 @@ int cryptonite_p384_is_valid_point(const cryptonite_p384_int* x, const cryptonit
 }
 
 void cryptonite_p384_from_bin(const uint8_t src[P384_NBYTES], cryptonite_p384_int* dst) {
-  int i;
+  int i, n;
   const uint8_t* p = &src[0];
 
   for (i = P384_NDIGITS - 1; i >= 0; --i) {
-    P384_DIGIT(dst, i) =
-        (((cryptonite_p384_digit) p[0]) << 56) |
-        (((cryptonite_p384_digit) p[1]) << 48) |
-        (((cryptonite_p384_digit) p[2]) << 40) |
-        (((cryptonite_p384_digit) p[3]) << 32) |
-        (((cryptonite_p384_digit) p[4]) << 24) |
-        (((cryptonite_p384_digit) p[5]) << 16) |
-        (((cryptonite_p384_digit) p[6]) << 8) |
-        p[7];
-    p += 8;
+    cryptonite_p384_digit dig = 0;
+    n = P384_BITSPERDIGIT;
+    while (n > 0) {
+      n -= 8;
+      dig |= ((cryptonite_p384_digit) *(p++)) << n;
+    }
+    P384_DIGIT(dst, i) = dig;
   }
 }
 
 void cryptonite_p384_to_bin(const cryptonite_p384_int* src, uint8_t dst[P384_NBYTES])
 {
-	int i;
+	int i, n;
 	uint8_t* p = &dst[0];
 
 	for (i = P384_NDIGITS -1; i >= 0; --i) {
 		const cryptonite_p384_digit dig = P384_DIGIT(src, i);
-		p[0] = dig >> 56;
-		p[1] = dig >> 48;
-		p[2] = dig >> 40;
-		p[3] = dig >> 32;
-		p[4] = dig >> 24;
-		p[5] = dig >> 16;
-		p[6] = dig >> 8;
-		p[7] = dig;
-		p += 8;
+		n = P384_BITSPERDIGIT;
+		while (n > 0) {
+			n -= 8;
+			*(p++) = dig >> n;
+		}
 	}
 }
 
@@ -425,9 +421,6 @@ void cryptonite_p384e_modsub(const cryptonite_p384_int* MOD, const cryptonite_p3
   addM(MOD, 0, P384_DIGITS(c), top);
 }
 
-// n' such as n * n' = -1 mod (2^64)
-#define MONTGOMERY_FACTOR 0x6ED46089E88FDC45
-
 #define NTH_DOUBLE_THEN_ADD(i, a, nth, b, out)   \
     cryptonite_p384e_montmul(a, a, out);         \
     for (i = 1; i < nth; i++)                    \
@@ -435,9 +428,9 @@ void cryptonite_p384e_modsub(const cryptonite_p384_int* MOD, const cryptonite_p3
     cryptonite_p384e_montmul(out, b, out);
 
 const cryptonite_p384_int cryptonite_SECP384r1_r2 = // r^2 mod n
-  {{0x2D319B2419B409A9, 0xFF3D81E5DF1AA419,
-    0xBC3E483AFCB82947, 0xD40D49174AAB1CC5,
-    0x3FB05B7A28266895, 0x0C84EE012B39BF21}};
+  {{P384_LITERAL(0x19B409A9, 0x2D319B24), P384_LITERAL(0xDF1AA419, 0xFF3D81E5),
+    P384_LITERAL(0xFCB82947, 0xBC3E483A), P384_LITERAL(0x4AAB1CC5, 0xD40D4917),
+    P384_LITERAL(0x28266895, 0x3FB05B7A), P384_LITERAL(0x2B39BF21, 0x0C84EE01)}};
 
 const cryptonite_p384_int cryptonite_SECP384r1_one = {{1}};
 
@@ -460,7 +453,7 @@ static void cryptonite_p384e_montmul(const cryptonite_p384_int* a, const crypton
     }
     accum[j] = chain;
 
-    mand = accum[0] * MONTGOMERY_FACTOR;
+    mand = accum[0] * P384_MONTGOMERY_FACTOR;
     chain = 0;
     mier = P384_DIGITS(&cryptonite_SECP384r1_n);
     for (j=0; j<P384_NDIGITS; j++) {

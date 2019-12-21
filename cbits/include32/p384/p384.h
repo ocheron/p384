@@ -42,15 +42,20 @@
 extern "C" {
 #endif
 
-#define P384_BITSPERDIGIT 64
-#define P384_NDIGITS 6
+#define P384_BITSPERDIGIT 32
+#define P384_NDIGITS 12
 #define P384_NBYTES 48
 
+// n' such as n * n' = -1 mod (2^32)
+#define P384_MONTGOMERY_FACTOR 0xE88FDC45
+
+#define P384_LITERAL(lo,hi) (lo), (hi)
+
 typedef int cryptonite_p384_err;
-typedef uint64_t cryptonite_p384_digit;
-typedef int64_t cryptonite_p384_sdigit;
-typedef __uint128_t cryptonite_p384_ddigit;
-typedef __int128_t cryptonite_p384_sddigit;
+typedef uint32_t cryptonite_p384_digit;
+typedef int32_t cryptonite_p384_sdigit;
+typedef uint64_t cryptonite_p384_ddigit;
+typedef int64_t cryptonite_p384_sddigit;
 
 // Defining cryptonite_p384_int as struct to leverage struct assigment.
 typedef struct {
