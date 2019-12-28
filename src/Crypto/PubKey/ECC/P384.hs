@@ -123,16 +123,16 @@ pointNegate a = withNewPoint $ \dx dy ->
 -- warning: variable time
 pointMul :: Scalar -> Point -> Point
 pointMul scalar p = withNewPoint $ \dx dy ->
-    withScalar scalar $ \n -> withPoint p $ \px py -> withScalarZero $ \nzero ->
-        ccryptonite_p384_points_mul_vartime nzero n px py dx dy
+    withScalar scalar $ \n -> withPoint p $ \px py ->
+        ccryptonite_p384e_point_mul n px py dx dy
 
 -- | Similar to 'pointMul', serializing the x coordinate as binary.
 -- When scalar is multiple of point order the result is all zero.
 pointDh :: ByteArray binary => Scalar -> Point -> binary
 pointDh scalar p =
     B.unsafeCreate scalarSize $ \dst -> withTempPoint $ \dx dy -> do
-        withScalar scalar $ \n -> withPoint p $ \px py -> withScalarZero $ \nzero ->
-            ccryptonite_p384_points_mul_vartime nzero n px py dx dy
+        withScalar scalar $ \n -> withPoint p $ \px py ->
+            ccryptonite_p384e_point_mul n px py dx dy
         ccryptonite_p384_to_bin (castPtr dx) dst
 
 -- | multiply the point @p with @n2 and add a lifted to curve value @n1
@@ -337,17 +337,8 @@ withNewScalarFreeze f = Scalar $ B.allocAndFreeze scalarSize f
 withTempPoint :: (Ptr P384X -> Ptr P384Y -> IO a) -> IO a
 withTempPoint f = allocTempScrubbed pointSize (\p -> let px = castPtr p in f px (pxToPy px))
 
-withTempScalar :: (Ptr P384Scalar -> IO a) -> IO a
-withTempScalar f = allocTempScrubbed scalarSize (f . castPtr)
-
 withScalar :: Scalar -> (Ptr P384Scalar -> IO a) -> IO a
 withScalar (Scalar d) f = B.withByteArray d f
-
-withScalarZero :: (Ptr P384Scalar -> IO a) -> IO a
-withScalarZero f =
-    withTempScalar $ \d -> do
-        ccryptonite_p384_init d
-        f d
 
 allocTemp :: Int -> (Ptr Word8 -> IO a) -> IO a
 allocTemp n f = ignoreSnd <$> B.allocRet n f
@@ -402,6 +393,13 @@ foreign import ccall "cryptonite_p384e_point_negate"
     ccryptonite_p384e_point_negate :: Ptr P384X -> Ptr P384Y
                                    -> Ptr P384X -> Ptr P384Y
                                    -> IO ()
+
+-- compute (out_x,out_y) = n * (in_x,in_y)
+foreign import ccall "cryptonite_p384e_point_mul"
+    ccryptonite_p384e_point_mul :: Ptr P384Scalar -- n
+                                -> Ptr P384X -> Ptr P384Y -- in_{x,y}
+                                -> Ptr P384X -> Ptr P384Y -- out_{x,y}
+                                -> IO ()
 
 -- compute (out_x,out,y) = n1 * G + n2 * (in_x,in_y)
 foreign import ccall "cryptonite_p384_points_mul_vartime"
