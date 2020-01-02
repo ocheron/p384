@@ -297,12 +297,10 @@ static void felem_reduce_degree(felem out, u64 tmp[27]) {
     tmp2[i +  2] += x >> 23;
     tmp2[i +  3] += (1 << 27) & xMask;
     tmp2[i +  3] -= (x << 13) & kBottom27Bits;
-    tmp2[i +  4] -= 1 & xMask;
-    tmp2[i +  4] += (1 << 28) & xMask;
+    tmp2[i +  4] += ((1 << 28) - 1) & xMask;
     tmp2[i +  4] -= (x << 18) & kBottom28Bits;
     tmp2[i +  4] -= x >> 14;
-    tmp2[i +  5] -= 1 & xMask;
-    tmp2[i +  5] += (1 << 27) & xMask;
+    tmp2[i +  5] += ((1 << 27) - 1) & xMask;
     tmp2[i +  5] -= x >> 10;
 
     tmp2[i +  6] += ((1 << 28) - 1) & xMask;
@@ -328,12 +326,10 @@ static void felem_reduce_degree(felem out, u64 tmp[27]) {
     tmp2[i +  3] += x >> 23;
     tmp2[i +  4] += (1 << 28) & xMask;
     tmp2[i +  4] -= (x << 14) & kBottom28Bits;
-    tmp2[i +  5] -= 1 & xMask;
-    tmp2[i +  5] += (1 << 27) & xMask;
+    tmp2[i +  5] += ((1 << 27) - 1) & xMask;
     tmp2[i +  5] -= (x << 18) & kBottom27Bits;
     tmp2[i +  5] -= x >> 14;
-    tmp2[i +  6] -= 1 & xMask;
-    tmp2[i +  6] += (1 << 28) & xMask;
+    tmp2[i +  6] += ((1 << 28) - 1) & xMask;
     tmp2[i +  6] -= x >> 9;
 
     tmp2[i +  7] += ((1 << 27) - 1) & xMask;
