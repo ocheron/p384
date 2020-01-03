@@ -232,7 +232,7 @@ static void felem_reduce_degree(felem out, u128 tmp[13]) {
      * written as, for example, 55 to mean a value <2**55.
      *
      * Word:      1   2   3   4   5   6   7   8
-     * Added:    56  57  55  55  55  55  56  31
+     * Added:    56  58  55  55  55  56  56  31
      *
      * The value that is currently offset 3 will be offset 2 for the next
      * iteration and then offset 1 for the iteration after that. Therefore
@@ -242,52 +242,57 @@ static void felem_reduce_degree(felem out, u128 tmp[13]) {
      * are written as, for example, 56+55, to mean a value < 2**56+2**55.
      *
      * Word:  1   2   3   4   5   6   7   8   9  10  11  12  13  14
-     *       56  57  55  55  55  55  56  31
-     *           56  57  55  55  55  55  56  31
-     *               56  57  55  55  55  55  56  31
-     *                   56  57  55  55  55  55  56  31
-     *                       56  57  55  55  55  55  56  31
-     *                           56  57  55  55  55  55  56  31
-     *                               56  57  55  55  55  55  56  31
+     *       56  58  55  55  55  56  56  31
+     *           56  58  55  55  55  56  56  31
+     *               56  58  55  55  55  56  56  31
+     *                   56  58  55  55  55  56  56  31
+     *                       56  58  55  55  55  56  56  31
+     *                           56  58  55  55  55  56  56  31
+     *                               56  58  55  55  55  56  56  31
      *       ------------------------------------------------------
-     *       56 57+ 57+  58  58+ 58+ 58+ 58+ 57+ 57+ 57+ 56+ 56+ 31
-     *          56  56+      55  56  57  56+ 56+ 55+ 31+ 55+ 31
-     *              55                   31  31  31+     31
+     *       56 58+ 58+  58+ 58+ 58+ 59+ 58+ 57+ 57+ 57+ 57+ 56+ 31
+     *          56  56+  57  57+ 57+ 55  57+ 56+ 56+ 55+ 31  31
+     *              55       55  56+     56+ 55+ 31  31
+     *                           55      55+ 31
+     *                                   31
      *
      * So the greatest amount is added to tmp2[7]. If tmp2[7] has an initial
-     * value of <2**56, then the maximum value will be < 2**58 + 2**57 + 2**56,
+     * value of <2**56, then the maximum value will be < 2**59 + 2**56 + 2**55,
      * which is < 2**64, as required. */
     tmp2[i + 1] += (x << 9) & kBottom55Bits;
     tmp2[i + 1] += (1ULL << 55) & xMask;
     tmp2[i + 1] -= (x << 41) & kBottom55Bits;
     tmp2[i + 2] += x >> 46;
     tmp2[i + 2] += ((3ULL << 55) - 1) & xMask;
-    tmp2[i + 2] -= ((x << 18) & kBottom55Bits) << 1;
+    tmp2[i + 2] -= (x << 19) & kBottom55Bits;
     tmp2[i + 2] -= x >> 14;
     tmp2[i + 2] -= (x << 50) & kBottom55Bits;
     tmp2[i + 3] += ((1ULL << 55) - 3) & xMask;
     tmp2[i + 3] -= x >> 5;
-    tmp2[i + 3] -= (x >> 37) << 1;
+    tmp2[i + 3] -= x >> 36;
     tmp2[i + 4] += ((1ULL << 55) - 1) & xMask;
     tmp2[i + 5] += ((1ULL << 55) - 1) & xMask;
-    tmp2[i + 6] -= 1 & xMask;
-    tmp2[i + 6] += (x << 54) & kBottom55Bits;
-    tmp2[i + 7] += x >> 1;
+    tmp2[i + 6] += ((1ULL << 54) - 1) & xMask;
+    tmp2[i + 6] += ((x - (1 & xMask)) << 54) & kBottom55Bits;
+    tmp2[i + 7] += (x - (1 & xMask)) >> 1;
     tmp2[i + 7] += (x << 31) & kBottom55Bits;
     tmp2[i + 8] += x >> 24;
   }
 
+  /* We now clear tmp2[14] which is < 2**31. The values added at indices
+   * 7, 8 and 9 are all < 2**56 so this is still fine.  */
   x = tmp2[14];
   xMask = NON_ZERO_TO_ALL_ONES(x);
   tmp2[14] = 0;
 
   tmp2[0 + NLIMBS] += x << 1;
+  tmp2[0 + NLIMBS] += (1ULL << 55) & xMask;
   tmp2[0 + NLIMBS] -= (x << 33) & kBottom55Bits;
+  tmp2[1 + NLIMBS] += ((1ULL << 42) - 1) & xMask;
   tmp2[1 + NLIMBS] -= x >> 22;
-  tmp2[1 + NLIMBS] += (x << 42) & kBottom55Bits;
-  tmp2[2 + NLIMBS] += x >> 13;
+  tmp2[1 + NLIMBS] += ((x - (1 & xMask)) << 42) & kBottom55Bits;
+  tmp2[2 + NLIMBS] += (x - (1 & xMask)) >> 13;
   tmp2[2 + NLIMBS] += (x << 19) & kBottom55Bits;
-  tmp2[3 + NLIMBS] += x >> 36;
 
   /* We merge the right shift with a carry chain. The words above 2**385 have
    * widths of 55,... which we need to correct when copying them down.  */
